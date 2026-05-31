@@ -63,7 +63,6 @@ func (u *recipeUsecase) GetAISuggestedRecipes(ctx context.Context, members []dom
 	}
 
 	var suggestions []domain.Recipe
-	ingredientsJoined := strings.ToLower(strings.Join(availableIngredients, " "))
 
 	// Heuristic matching model: select recipes matching available ingredients or nutritional constraints
 	for _, r := range allRecipes {

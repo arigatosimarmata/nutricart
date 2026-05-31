@@ -1,6 +1,8 @@
 package http
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/nutricart/backend/domain"
 )
@@ -141,28 +143,16 @@ func (h *RecipeHandler) GetAISuggestions(c *fiber.Ctx) error {
 }
 
 func stringsSplitNoEmpty(s string, sep string) []string {
-	raw := ...
-	// inline split helper
-	parts := make([]string, 0)
-	for _, v := range splitString(s, sep) {
+	if s == "" {
+		return []string{}
+	}
+	raw := strings.Split(s, sep)
+	parts := make([]string, 0, len(raw))
+	for _, v := range raw {
+		v = strings.TrimSpace(v)
 		if v != "" {
 			parts = append(parts, v)
 		}
 	}
 	return parts
-}
-
-func splitString(s, sep string) []string {
-	// Simple manual split since we want clean outputs
-	var result []string
-	start := 0
-	for i := 0; i <= len(s)-len(sep); i++ {
-		if s[i:i+len(sep)] == sep {
-			result = append(result, s[start:i])
-			start = i + len(sep)
-			i += len(sep) - 1
-		}
-	}
-	result = append(result, s[start:])
-	return result
 }
