@@ -2,26 +2,29 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/nutricart/backend/delivery/http"
 	"github.com/nutricart/backend/delivery/http/middleware"
 	"github.com/nutricart/backend/migration"
+	"github.com/nutricart/backend/pkg/logger"
 	"github.com/nutricart/backend/repository/mysql"
 	"github.com/nutricart/backend/usecase"
-	"gorm.io/driver/mysql"
+	"go.uber.org/zap"
+	gormMysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func main() {
-	fmt.Println("═══════════════════════════════════════════════")
-	fmt.Println("       NUTRICART BACKEND SERVICE STARTED       ")
-	fmt.Println("               Clean Architecture              ")
-	fmt.Println("═══════════════════════════════════════════════")
+	// Initialize Zap Structured Logger
+	logger.InitLogger()
+
+	logger.Info("═══════════════════════════════════════════════")
+	logger.Info("       NUTRICART BACKEND SERVICE STARTED       ")
+	logger.Info("               Clean Architecture              ")
+	logger.Info("═══════════════════════════════════════════════")
 
 	// 1. Establish Database Connection (MySQL)
 	dbHost := os.Getenv("DB_HOST")
@@ -54,23 +57,28 @@ func main() {
 	var db *gorm.DB
 	var err error
 
-	fmt.Printf("Connecting to MySQL Database: %s@tcp(%s:%s)/%s...\n", dbUser, dbHost, dbPort, dbName)
+	logger.Info("Connecting to MySQL Database", 
+		zap.String("user", dbUser),
+		zap.String("host", dbHost),
+		zap.String("port", dbPort),
+		zap.String("database", dbName),
+	)
 
 	db, err = gorm.Open(gormMysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		fmt.Printf("⚠️ WARNING: GORM failed to connect to MySQL database: %v\n", err)
-		fmt.Println("🔄 For testing purposes, fallback to standard mock DB in-memory if requested.")
+		logger.Warn("GORM failed to connect to MySQL database", zap.Error(err))
+		logger.Info("🔄 For testing purposes, fallback to standard mock DB in-memory if requested.")
 		// In production we would exit (Fail-fast):
-		// log.Fatalf("Database connection failure: %v", err)
+		// logger.Fatal("Database connection failure", zap.Error(err))
 	}
 
 	// 2. Auto Migrate Tables (Clean DB Migration schema)
 	if db != nil {
-		fmt.Println("🔄 Running Auto Database Migrations and Seeders...")
+		logger.Info("🔄 Running Auto Database Migrations and Seeders...")
 		if err := migration.AutoMigrateAndSeed(db); err != nil {
-			log.Fatalf("Migration failed: %v", err)
+			logger.Fatal("Migration failed", zap.Error(err))
 		}
-		fmt.Println("✔ Database migration and indexing completed.")
+		logger.Info("✔ Database migration and indexing completed.")
 	}
 
 	// 3. Initialize Repositories (SOLID - Depend on Interfaces)
@@ -94,7 +102,8 @@ func main() {
 		AllowOrigins: "*",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
-	app.Use(logger.New())
+	// Use our new structured Zap Logger middleware for comprehensive activity tracing
+	app.Use(middleware.ZapLoggerMiddleware())
 
 	// Health Check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -112,14 +121,28 @@ func main() {
 	http.NewRecipeHandler(app, recipeUC, authMiddleware)
 	http.NewShoppingItemHandler(app, shoppingItemUC, authMiddleware)
 
-	// 8. Start Endpoint listener
+	// 7.5. Serve Static Frontend files (Vite output dir) for fully cohesive deployment single-command
+	app.Static("/", "./dist")
+	app.Get("*", func(c *fiber.Ctx) error {
+		path := c.Path()
+		// Make sure backend API paths receive 404 instead of index.html
+		if len(path) >= 4 && path[:4] == "/api" {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Resource API tidak ditemukan.",
+			})
+		}
+		return c.SendFile("./dist/index.html")
+	})
+
+	// 8. Start Endpoint listener (checks default secure environment config)
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "3000" // Default port to port 3000 to match developer workspace criteria
 	}
 
-	fmt.Printf("🚀 NutriCart API service is listening on port %s!\n", port)
+	logger.Info("🚀 NutriCart API service is listening", zap.String("port", port))
 	if err := app.Listen("0.0.0.0:" + port); err != nil {
-		log.Fatalf("Fiber server failed to boot: %v", err)
+		logger.Fatal("Fiber server failed to boot", zap.Error(err))
 	}
 }

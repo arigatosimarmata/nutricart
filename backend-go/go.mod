@@ -8,6 +8,7 @@ require (
 	google.golang.org/api v0.169.0
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/gorm v1.25.8
+	go.uber.org/zap v1.26.0
 )
 
 require (
