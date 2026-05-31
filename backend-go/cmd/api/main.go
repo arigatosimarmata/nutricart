@@ -82,13 +82,11 @@ func main() {
 	}
 
 	// 3. Initialize Repositories (SOLID - Depend on Interfaces)
-	familyMemberRepo := mysql.NewFamilyMemberRepository(db)
 	shoppingItemRepo := mysql.NewShoppingItemRepository(db)
 	recipeRepo := mysql.NewRecipeRepository(db)
 
 	// 4. Initialize Use Cases (Domain boundaries)
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-	familyMemberUC := usecase.NewFamilyMemberUsecase(familyMemberRepo)
 	shoppingItemUC := usecase.NewShoppingItemUsecase(shoppingItemRepo)
 	recipeUC := usecase.NewRecipeUsecase(recipeRepo)
 	authUC := usecase.NewAuthUsecase(jwtSecret)
