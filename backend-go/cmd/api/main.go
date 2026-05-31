@@ -66,19 +66,33 @@ func main() {
 
 	db, err = gorm.Open(gormMysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		logger.Warn("GORM failed to connect to MySQL database", zap.Error(err))
-		logger.Info("🔄 For testing purposes, fallback to standard mock DB in-memory if requested.")
-		// In production we would exit (Fail-fast):
-		// logger.Fatal("Database connection failure", zap.Error(err))
+		logger.Error("❌ GORM DATABASE CONNECTION ERROR: Failed to connect to MySQL backend database",
+			zap.Error(err),
+			zap.String("host", dbHost),
+			zap.String("port", dbPort),
+			zap.String("database", dbName),
+			zap.String("recommendation", "Please verify that the DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME environment variables are accurately configured under Cloud Run or Cloud SQL connections."),
+		)
+		
+		// If running in production mode, we MUST fail-fast immediately to prevent running the container in a broken state
+		env := os.Getenv("ENV")
+		if env == "" {
+			env = os.Getenv("NODE_ENV")
+		}
+		if env == "production" || env == "prod" {
+			logger.Fatal("FATAL: Cannot continue server initialization without a healthy database connection in production mode.")
+		} else {
+			logger.Warn("⚠️ FALLBACK: Falling back without a database connection. Some features may not work as expected.")
+		}
 	}
 
 	// 2. Auto Migrate Tables (Clean DB Migration schema)
 	if db != nil {
 		logger.Info("🔄 Running Auto Database Migrations and Seeders...")
 		if err := migration.AutoMigrateAndSeed(db); err != nil {
-			logger.Fatal("Migration failed", zap.Error(err))
+			logger.Fatal("❌ FATAL: Database Auto-migration failed at startup", zap.Error(err))
 		}
-		logger.Info("✔ Database migration and indexing completed.")
+		logger.Info("✔ Database migration and indexing completed successfully.")
 	}
 
 	// 3. Initialize Repositories (SOLID - Depend on Interfaces)
@@ -86,7 +100,21 @@ func main() {
 	recipeRepo := mysql.NewRecipeRepository(db)
 
 	// 4. Initialize Use Cases (Domain boundaries)
-	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	jwtSecretStr := os.Getenv("JWT_SECRET")
+	if jwtSecretStr == "" {
+		logger.Error("❌ SECURITY WARNING: JWT_SECRET environment variable is empty!",
+			zap.String("recommendation", "Please configure the JWT_SECRET environment variable in your production configuration immediately to secure API authentication routes."),
+		)
+		env := os.Getenv("ENV")
+		if env == "" {
+			env = os.Getenv("NODE_ENV")
+		}
+		if env == "production" || env == "prod" {
+			logger.Fatal("FATAL: Starting without a JWT_SECRET is strictly forbidden in production mode.")
+		}
+		jwtSecretStr = "temporary-dev-jwt-fallback-key-should-never-be-used-in-production"
+	}
+	jwtSecret := []byte(jwtSecretStr)
 	shoppingItemUC := usecase.NewShoppingItemUsecase(shoppingItemRepo)
 	recipeUC := usecase.NewRecipeUsecase(recipeRepo)
 	authUC := usecase.NewAuthUsecase(jwtSecret)
@@ -136,11 +164,11 @@ func main() {
 	// 8. Start Endpoint listener (checks default secure environment config)
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000" // Default port to port 3000 to match developer workspace criteria
+		port = "8080" // Primary Cloud Run default fallback
 	}
 
-	logger.Info("🚀 NutriCart API service is listening", zap.String("port", port))
+	logger.Info("🚀 NutriCart API service is starting to listen", zap.String("port", port))
 	if err := app.Listen("0.0.0.0:" + port); err != nil {
-		logger.Fatal("Fiber server failed to boot", zap.Error(err))
+		logger.Fatal("Fiber server failed to boot on port " + port, zap.Error(err))
 	}
 }
