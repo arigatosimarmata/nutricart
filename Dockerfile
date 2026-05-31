@@ -22,17 +22,19 @@ RUN npm run build
 # =========================================================
 FROM golang:1.21-alpine AS go-builder
 
-WORKDIR /app
-
-# Copy Go module declarations
-COPY backend-go/go.mod backend-go/go.sum* ./backend-go/
-
-# Navigate to backend-go directory to build dependencies
 WORKDIR /app/backend-go
-RUN go mod download
+
+# Copy Go module and dependency declarations
+COPY backend-go/go.mod backend-go/go.sum* ./
 
 # Copy Go source files
 COPY backend-go/ .
+
+# Automatically tidy and construct/update go.sum verifying checksums on the fly during container build
+RUN go mod tidy
+
+# Download and verify dependencies
+RUN go mod download
 
 # Build statically linked optimization binary without debug symbols
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/nutricart-app cmd/api/main.go
