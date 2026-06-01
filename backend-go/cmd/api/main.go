@@ -122,6 +122,7 @@ func main() {
 	// 3. Initialize Repositories (SOLID - Depend on Interfaces)
 	shoppingItemRepo := mysql.NewShoppingItemRepository(db)
 	recipeRepo := mysql.NewRecipeRepository(db)
+	familyRepo := mysql.NewFamilyMemberRepository(db)
 
 	// 4. Initialize Use Cases (Domain boundaries)
 	jwtSecretStr := os.Getenv("JWT_SECRET")
@@ -141,6 +142,7 @@ func main() {
 	jwtSecret := []byte(jwtSecretStr)
 	shoppingItemUC := usecase.NewShoppingItemUsecase(shoppingItemRepo)
 	recipeUC := usecase.NewRecipeUsecase(recipeRepo)
+	familyUC := usecase.NewFamilyMemberUsecase(familyRepo)
 	authUC := usecase.NewAuthUsecase(jwtSecret)
 
 	// 5. Setup Go Fiber Application framework
@@ -170,6 +172,7 @@ func main() {
 	http.NewAuthHandler(app, authUC)
 	http.NewRecipeHandler(app, recipeUC, authMiddleware)
 	http.NewShoppingItemHandler(app, shoppingItemUC, authMiddleware)
+	http.NewFamilyMemberHandler(app, familyUC)
 
 	// 7.5. Serve Static Frontend files (Vite output dir) for fully cohesive deployment single-command
 	app.Static("/", "./dist")

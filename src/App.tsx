@@ -246,6 +246,7 @@ export default function App() {
     weight_kg: 50,
     height_cm: 158
   });
+  const [profileSuccessMessage, setProfileSuccessMessage] = useState<string | null>(null);
 
   // Client simulated JWT Auth status
   const [authToken, setAuthToken] = useState<string>("");
@@ -290,6 +291,10 @@ export default function App() {
   const handleAddMember = async (e: FormEvent) => {
     e.preventDefault();
     if (!newMemberForm.name) return;
+    
+    // Logging input payload to client console before transmitting
+    console.log("[AUDIT LOG] Submitting Profile addition form payload:", JSON.stringify(newMemberForm, null, 2));
+    
     try {
       const res = await fetch("/api/v1/family-members", {
         method: "POST",
@@ -301,6 +306,8 @@ export default function App() {
         fetchFamilyMembers();
         setShowAddMember(false);
         setNewMemberForm({ name: "", gender: "Wanita", age: 28, weight_kg: 50, height_cm: 158 });
+        // Display the custom modal verification dialog indicating successful addition
+        setProfileSuccessMessage(`Profil '${d.data.name}' (${d.data.gender}, ${d.data.age} tahun) berhasil ditambahkan ke daftar rujukan gizi keluarga!`);
       }
     } catch (e) {
       console.error(e);
@@ -896,6 +903,43 @@ return (
           <p>© 2026 NutriCart Backend Console - Clean Architecture Core & SOLID Design Elements.</p>
         </div>
       </footer>
+
+      {/* Dynamic Success Dialog Modal */}
+      <AnimatePresence>
+        {profileSuccessMessage && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in" id="success-dialog-overlay">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden"
+              id="success-dialog"
+            >
+              <div className="p-6 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-4 animate-pulse">
+                  <CheckCircle className="h-7 w-7 stroke-[2]" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">
+                  Profil Berhasil Ditambahkan
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                  {profileSuccessMessage}
+                </p>
+              </div>
+              <div className="bg-slate-50 px-6 py-4 flex justify-center border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setProfileSuccessMessage(null)}
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-2.5 text-sm shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
+                  id="success-dialog-close-btn"
+                >
+                  Tutup & Selesai
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -10,6 +11,40 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Secure auditing logger with credential hashing capability
+function logPayloadSecurely(actionName: string, payload: any) {
+  if (!payload) {
+    console.log(`[AUDIT LOG - ${new Date().toISOString()}] ${actionName}: No payload`);
+    return;
+  }
+  try {
+    const cloned = JSON.parse(JSON.stringify(payload));
+    const credentialTerms = ["password", "token", "secret", "credential", "key", "pin", "auth", "id_token", "refresh_token"];
+    
+    const sanitize = (obj: any) => {
+      if (typeof obj !== "object" || obj === null) return;
+      for (const key of Object.keys(obj)) {
+        if (credentialTerms.some(term => key.toLowerCase().includes(term))) {
+          if (typeof obj[key] === "string" && obj[key].length > 0) {
+            const hash = crypto.createHash("sha256").update(obj[key]).digest("hex");
+            obj[key] = `[HASHED: ${hash.slice(0, 16)}...]`;
+          } else if (obj[key] !== null && obj[key] !== undefined) {
+            obj[key] = `[MUTED CREDENTIAL]`;
+          }
+        } else if (typeof obj[key] === "object" && obj[key] !== null) {
+          sanitize(obj[key]);
+        }
+      }
+    };
+    
+    sanitize(cloned);
+    console.log(`[AUDIT LOG - ${new Date().toISOString()}] ${actionName}:`, JSON.stringify(cloned, null, 2));
+  } catch (err: any) {
+    console.error(`[AUDIT LOG ERROR] Failed to serialize logs: ${err.message}`);
+  }
+}
+
 
 // In-memory data mimicking MySQL database schemas for interactive demo console
 let familyMembers = [
@@ -63,6 +98,7 @@ const MOCK_REFRESH_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo
 
 // 1. Google OAuth Authentication Simulate
 app.post("/api/v1/auth/google", (req, res) => {
+  logPayloadSecurely("GOOGLE_AUTH", req.body);
   const { id_token } = req.body;
   if (!id_token) {
     return res.status(400).json({
@@ -86,6 +122,7 @@ app.post("/api/v1/auth/google", (req, res) => {
 
 // Auth token refresh simulation
 app.post("/api/v1/auth/refresh", (req, res) => {
+  logPayloadSecurely("AUTH_REFRESH", req.body);
   const { refresh_token } = req.body;
   if (!refresh_token || refresh_token !== MOCK_REFRESH_TOKEN) {
     return res.status(401).json({
@@ -356,6 +393,7 @@ app.get("/api/v1/family-members", (req, res) => {
 });
 
 app.post("/api/v1/family-members", (req, res) => {
+  logPayloadSecurely("ADD_FAMILY_MEMBER", req.body);
   const { name, gender, age, weight_kg, height_cm } = req.body;
   if (!name || !gender) {
     return res.status(400).json({ status: "error", message: "Name and Gender are required" });

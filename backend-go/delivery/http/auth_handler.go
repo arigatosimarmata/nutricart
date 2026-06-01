@@ -1,8 +1,13 @@
 package http
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/nutricart/backend/domain"
+	"github.com/nutricart/backend/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
@@ -22,6 +27,12 @@ type GoogleSignInRequest struct {
 	IDToken string `json:"id_token"`
 }
 
+func hashValueGo(val string) string {
+	h := sha256.New()
+	h.Write([]byte(val))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func (h *AuthHandler) GoogleSignIn(c *fiber.Ctx) error {
 	var req GoogleSignInRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -39,6 +50,13 @@ func (h *AuthHandler) GoogleSignIn(c *fiber.Ctx) error {
 			"message":    "Google id_token wajib disertakan.",
 		})
 	}
+
+	// Dynamic Secure Payload Logging
+	hashed := hashValueGo(req.IDToken)
+	if len(hashed) > 16 {
+		hashed = hashed[:16] + "..."
+	}
+	logger.Info("[AUDIT LOG] Google Sign-In Request Received", zap.String("id_token_sha256", hashed))
 
 	// Verify ID token
 	userData, err := h.authUsecase.VerifyGoogleToken(c.UserContext(), req.IDToken)
@@ -96,6 +114,13 @@ func (h *AuthHandler) RefreshSession(c *fiber.Ctx) error {
 			"message":    "Kolom refresh_token wajib dicantumkan.",
 		})
 	}
+
+	// Dynamic Secure Payload Logging
+	hashed := hashValueGo(req.RefreshToken)
+	if len(hashed) > 16 {
+		hashed = hashed[:16] + "..."
+	}
+	logger.Info("[AUDIT LOG] Refresh Session Request Received", zap.String("refresh_token_sha256", hashed))
 
 	newAccessToken, err := h.authUsecase.RefreshAccessToken(c.UserContext(), req.RefreshToken)
 	if err != nil {
