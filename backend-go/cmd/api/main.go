@@ -48,9 +48,30 @@ func main() {
 		dbName = "nutricart"
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		dbUser, dbPass, dbHost, dbPort, dbName,
-	)
+	cloudSQLConnection := os.Getenv("CLOUD_SQL_CONNECTION_NAME")
+
+	var dsn string
+	if cloudSQLConnection != "" {
+		// Standard GCP Cloud SQL UNIX Socket connection format
+		socketPath := fmt.Sprintf("/cloudsql/%s", cloudSQLConnection)
+		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			dbUser, dbPass, socketPath, dbName,
+		)
+		logger.Info("Configuring Unix socket DSN for GCP Cloud SQL connection", 
+			zap.String("socket_path", socketPath),
+			zap.String("database", dbName),
+		)
+	} else {
+		// Traditional TCP Connection (for local testing, direct IPs, or VPN/VPC tunnels)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			dbUser, dbPass, dbHost, dbPort, dbName,
+		)
+		logger.Info("Configuring traditional TCP connection DSN", 
+			zap.String("host", dbHost),
+			zap.String("port", dbPort),
+			zap.String("database", dbName),
+		)
+	}
 
 	// Since we are running in multiple deployment scenarios, check for local SQLite mock if preferred,
 	// but default to robust MySQL with fail-fast check (Senior engineer principles)
@@ -62,15 +83,18 @@ func main() {
 		zap.String("host", dbHost),
 		zap.String("port", dbPort),
 		zap.String("database", dbName),
+		zap.String("cloud_sql_connection_name", cloudSQLConnection),
 	)
 
 	db, err = gorm.Open(gormMysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		logger.Error("❌ GORM DATABASE CONNECTION ERROR: Failed to connect to MySQL backend database",
 			zap.Error(err),
+			zap.String("user", dbUser),
 			zap.String("host", dbHost),
 			zap.String("port", dbPort),
 			zap.String("database", dbName),
+			zap.String("cloud_sql_connection_name", cloudSQLConnection),
 			zap.String("recommendation", "Please verify that the DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME environment variables are accurately configured under Cloud Run or Cloud SQL connections."),
 		)
 		
