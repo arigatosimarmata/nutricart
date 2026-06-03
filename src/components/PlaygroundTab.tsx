@@ -1,6 +1,7 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Html5Qrcode } from "html5-qrcode";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { 
   Users, 
   Plus, 
@@ -327,6 +328,25 @@ export default function PlaygroundTab({
       return Math.round(10 * w + 6.25 * h - 5 * age - 161);
     }
   };
+
+  // Recharts datasets for calories the family BMR vs shopping total
+  const calorieChartData = [
+    {
+      name: "Kalori",
+      unit: "kcal",
+      "Keranjang": totalCalories,
+      "Target BMR": calorieLimit
+    }
+  ];
+
+  const proteinChartData = [
+    {
+      name: "Protein",
+      unit: "g",
+      "Keranjang": parseFloat(totalProtein.toFixed(1)),
+      "Target Gizi": parseFloat(proteinLimit.toFixed(1))
+    }
+  ];
 
   return (
     <div className="space-y-8" id="playground-workspace">
@@ -1365,6 +1385,115 @@ export default function PlaygroundTab({
                         {totalProtein > proteinLimit ? "⚠️ Melebihi" : "✅ Aman"}
                       </span>
                       <span className="text-[9px] text-slate-400 font-medium">Batas: {proteinLimit}g</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visualisasi Grafik Capaian Gizi dengan Recharts */}
+                <div className="border-t border-slate-200/50 pt-3.5 space-y-3" id="nutrition-charts-section">
+                  <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block text-center">
+                    Visualisasi Capaian Target BMR Harian (Recharts)
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Kotak Mini Grafik Kalori */}
+                    <div className="bg-slate-900/[0.03] border border-slate-200/60 p-2.5 rounded-xl flex flex-col justify-between">
+                      <div className="flex justify-between items-center mb-2 px-1">
+                        <span className="text-[10px] text-slate-700 font-extrabold">Kalori</span>
+                        <span className={`text-[10px] font-mono font-black ${
+                          totalCalories > calorieLimit ? "text-amber-655" : "text-emerald-700"
+                        }`}>
+                          {calorieLimit > 0 ? Math.round((totalCalories / calorieLimit) * 100) : 0}% Target
+                        </span>
+                      </div>
+
+                      <div className="h-[64px] w-full" id="recharts-cal-container">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={calorieChartData}
+                            layout="vertical"
+                            margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                          >
+                            <XAxis type="number" hide />
+                            <YAxis type="category" dataKey="name" hide />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#0f172a", borderRadius: "8px", border: "1px solid #1e293b", fontSize: "10px" }}
+                              itemStyle={{ color: "#f8fafc", padding: "1px 0" }}
+                              labelStyle={{ display: "none" }}
+                              cursor={false}
+                            />
+                            <Legend 
+                              iconSize={7} 
+                              iconType="circle"
+                              wrapperStyle={{ fontSize: "9px", color: "#64748b", marginTop: "2px" }} 
+                            />
+                            <Bar 
+                              dataKey="Keranjang" 
+                              name="Keranjang" 
+                              fill={totalCalories > calorieLimit ? "#f59e0b" : "#0d9488"} 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={10}
+                            />
+                            <Bar 
+                              dataKey="Target BMR" 
+                              name="Target" 
+                              fill="#94a3b8" 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={10}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Kotak Mini Grafik Protein */}
+                    <div className="bg-slate-900/[0.03] border border-slate-200/60 p-2.5 rounded-xl flex flex-col justify-between">
+                      <div className="flex justify-between items-center mb-2 px-1">
+                        <span className="text-[10px] text-slate-700 font-extrabold">Protein</span>
+                        <span className={`text-[10px] font-mono font-black ${
+                          totalProtein > proteinLimit ? "text-amber-655" : "text-emerald-700"
+                        }`}>
+                          {proteinLimit > 0 ? Math.round((totalProtein / proteinLimit) * 100) : 0}% Target
+                        </span>
+                      </div>
+
+                      <div className="h-[64px] w-full" id="recharts-prot-container">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={proteinChartData}
+                            layout="vertical"
+                            margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                          >
+                            <XAxis type="number" hide />
+                            <YAxis type="category" dataKey="name" hide />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#0f172a", borderRadius: "8px", border: "1px solid #1e293b", fontSize: "10px" }}
+                              itemStyle={{ color: "#f8fafc", padding: "1px 0" }}
+                              labelStyle={{ display: "none" }}
+                              cursor={false}
+                            />
+                            <Legend 
+                              iconSize={7} 
+                              iconType="circle"
+                              wrapperStyle={{ fontSize: "9px", color: "#64748b", marginTop: "2px" }} 
+                            />
+                            <Bar 
+                              dataKey="Keranjang" 
+                              name="Keranjang" 
+                              fill={totalProtein > proteinLimit ? "#f59e0b" : "#10b981"} 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={10}
+                            />
+                            <Bar 
+                              dataKey="Target Gizi" 
+                              name="Target" 
+                              fill="#94a3b8" 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={10}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
                   </div>
                 </div>
